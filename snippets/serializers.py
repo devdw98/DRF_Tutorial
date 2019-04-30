@@ -1,15 +1,19 @@
 from django.forms import widgets
 from rest_framework import serializers
 from snippets.models import Snippet, LANGUAGE_CHOICES, STYLE_CHOICES
+from django.contrib.auth.models import User
 
 class SnippetSerializer(serializers.Serializer):
+    #직렬화에 ReadOnlyField가 사용될 때 언제나 읽기 전용이므로, 모델의 인스턴스를 업데이트할 때는 사용할 수 없다.
+    owner = serializers.ReadOnlyField(source='owner.username') #== CharField(read_only=True)
+
     class Meta:
         model = Snippet #Serializer class의 단축버전
-        field = ('id','title','code','linenos','language','style')
+        field = ('owner','id','title','code','linenos','language','style')
 
-    def create(self, validated_data):
+    def create(self, validated_data): 
         """
-        검증한 데이터로 새 `Snippet` 인스턴스를 생성하여 리턴합니다.
+        검증한 요청 데이터에 더하여 'owner'필드도 전달한다.
         """
         return Snippet.objects.create(**validated_data)
 
@@ -25,10 +29,15 @@ class SnippetSerializer(serializers.Serializer):
         instance.save()
         return instance
 
+#사용자를 보여주는 API
+class UserSerializer(serializers.ModelSerializer):
     """
-    python manage.py shell
->>> from snippets.serializers import SnippetSerializer
->>> serializer = SnippetSerializer()
->>> print(repr(serializer))
-SnippetSerializer():
+    snippets은 사용자 모델과 반대방향으로 이루어져있어서
+    ModelSerializer에 기본적으로 추가되지 않는다.
+    따라서 명시적으로 필드를 지정해준다.
     """
+    snippets = serializers.PrimaryKeyRelatedField(many=True, queryset = Snippet.objects.all())
+
+    class Meta:
+        model = User
+        fields = ('id','username','snippets')
