@@ -3,13 +3,14 @@ from rest_framework import serializers
 from snippets.models import Snippet, LANGUAGE_CHOICES, STYLE_CHOICES
 from django.contrib.auth.models import User
 
-class SnippetSerializer(serializers.Serializer):
+#하이퍼링크로 API를 연결하기 위해서는 ModelSerializer >> HyperlinkedModelSerializer로 변경해야한다.
+class SnippetSerializer(serializers.HyperlinkedModelSerializer):
     #직렬화에 ReadOnlyField가 사용될 때 언제나 읽기 전용이므로, 모델의 인스턴스를 업데이트할 때는 사용할 수 없다.
     owner = serializers.ReadOnlyField(source='owner.username') #== CharField(read_only=True)
-
+    highlight = serializers.HyperlinkedIdentityField(view_name = 'snippet-highlight', format='html')
     class Meta:
         model = Snippet #Serializer class의 단축버전
-        field = ('owner','id','title','code','linenos','language','style')
+        field = ('url','highlight','owner','title','code','linenos','language','style')
 
     def create(self, validated_data): 
         """
@@ -30,14 +31,14 @@ class SnippetSerializer(serializers.Serializer):
         return instance
 
 #사용자를 보여주는 API
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.HyperlinkedModelSerializer):
     """
     snippets은 사용자 모델과 반대방향으로 이루어져있어서
     ModelSerializer에 기본적으로 추가되지 않는다.
     따라서 명시적으로 필드를 지정해준다.
     """
-    snippets = serializers.PrimaryKeyRelatedField(many=True, queryset = Snippet.objects.all())
+    snippets = serializers.HyperlinkedRelatedField(many=True, view_name = 'snippet-detail',read_only=True)
 
     class Meta:
         model = User
-        fields = ('id','username','snippets')
+        fields = ('url','username','snippets')
