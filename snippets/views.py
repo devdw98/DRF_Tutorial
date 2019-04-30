@@ -9,6 +9,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework import renderers
+from rest_framework import viewsets
+from rest_framework.decorators import detail_route
 
 #새로 만든 serializer class를 view에서 어떻게 사용하는가!
 #Class 기반 view형태 - generics
@@ -23,42 +25,30 @@ def api_root(request, format=None):
         'users':reverse('user-list',request=request, format=format),
         'snippets':reverse('snippet-list',request=request, format=format)
     })
-    
-#코드 조각의 하이라이트 버전에 대한 엔드 포인트 만들기
-class SnippetHighlight(generics.GenericAPIView):
-    queryset = Snippet.objects.all()
-    renderer_classes = (renderers.StaticHTMLRenderer,)
 
-    def get(self, request, *args, **kwargs):
-        snippet = self.get_object()
-        return Response(snippet.highlighted)
-
-class SnippetList(generics.ListCreateAPIView):
+class SnippetViewSet(viewsets.ModelViewSet):
     """
-    코드 조각을 모두 보여주거나 새 코드 조각을 만듭니다.
+    list, create, retrieve, update, destroy 기능을 자동으로 지원한다.
+    highlight기능은 코드로 추가 작성해야한다.
     """
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
-
-    """
-    사용자가 만든 코드 조각을 연결한다.
-    """
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
-    """
-    코드 조각 조회, 업데이트, 삭제
-    """
-    queryset = Snippet.objects.all()
+    queryset - Snippet.objects.all()
     serializer_class = SnippetSerializer
     permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
 
-class UserList(generics.ListAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+# @detail_route 데코레이터는 자동지원되지 않는 기능에 대해 사용한다.
+# 기본적으로 GET요청에 응답하고, method 인자를 설정한다면 POST 요청에도 응답할 수 있다.
+# 추가기능의 URL은 메서드 이름과 같다. 변경하고 싶으면 데코레이터에 url_path를 설정하면 된다.
+    @detail_route(renderer_classes=[renderers.StaticHTMLRenderer])
+    def highilght(self, request, *args, **kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
 
-class UserDetail(generics.RetrieveAPIView):
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+class UserViewSet(viewsets.ReadOnlyModelViewSet): #읽기 전용 기능으로 자동 지원
+    """
+    'list'와 'detail'기능을 자동으로 지원합니다.
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
